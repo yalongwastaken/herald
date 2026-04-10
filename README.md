@@ -1,64 +1,61 @@
 # herald
-> Distributed voice-command system with LLM-based task dispatch to embedded nodes
+> Fully local, LLM-driven voice command dispatch across embedded nodes via MCP
 
 ## Overview
 
-**herald** is a distributed voice control system where a central LLM server receives spoken commands, processes them, and dispatches structured actions to a network of embedded nodes via MCP (Model Context Protocol). MCP is used here as a structured tool-calling layer — the LLM outputs commands that map to hardware capabilities exposed by each node, rather than issuing raw instructions directly. This allows the LLM to route commands dynamically without hardcoded logic.
+**herald** is a distributed voice control system where a Raspberry Pi 5 serves as the central processing node — handling speech capture, transcription, LLM inference, and MCP-based task dispatch entirely on-device. Commands are routed over MQTT to a network of ESP32 actuator nodes, which emulate robotic agents by responding to natural language instructions with real hardware actuation.
 
-The system supports natural language task management including task interruption and deletion mid-execution. Node count and hardware configuration may vary depending on availability.
+Unlike prior voice-controlled systems that rely on cloud pipelines or hardcoded command mappings, herald uses a structured tool-calling layer between the LLM and the embedded nodes, inspired by the MCP (Model Context Protocol) pattern. Each node exposes its hardware capabilities as named callable tools (e.g., `set_led`, `run_motor`), and the LLM dynamically reasons over which tools to invoke based on the spoken command — without any hardcoded routing logic. Depending on implementation progress, this may be realized as explicit MCP via the `mcp` Python library or as an equivalent custom tool-calling layer.
+
+## Key Differentiators
+
+- **Plug-and-play nodes** — new nodes and actuators can be added without modifying the LLM or dispatcher logic
+- **Multi-node fan-out** — a single natural language command can dispatch to multiple heterogeneous nodes simultaneously
+- **LLM-driven interrupts** — task interruption and deletion are handled through the same LLM reasoning pipeline, not as separate hardcoded interrupt handlers
+- **Fully local inference** — Whisper (ASR) and a small LLM run entirely on the Raspberry Pi 5; nothing touches the cloud
 
 ## Architecture
 
 ```
-[Mic Node (ESP32)] ──audio──▶ [LLM Server]
-                                    │
-                              ASR → LLM → TTS
-                              MCP Dispatcher
-                                    │
-                    ┌───────────────┼───────────────┐
-                    ▼               ▼               ▼
-              [ESP32 Mic Node] [ESP32 Node 2]   [RPi 5 Node]
-              LCD + Speaker    LCD + Speaker    LCD + Speaker
-              + Actuators      + Actuators      + Actuators
+        ┌─────────────────────────────┐
+        │        Raspberry Pi 5        │
+        │  Mic → Whisper → LLM → TTS  │
+        │       MCP Dispatcher         │
+        │       MQTT Broker            │
+        └─────────────┬───────────────┘
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+   [ESP32 Node 1]          [ESP32 Node 2]
+   LCD + Actuators         LCD + Actuators
+   (LEDs, motors, etc.)    (LEDs, motors, etc.)
 ```
-
-The mic node functions as both the primary voice input/output interface and a standard MCP node — it can receive and execute dispatched commands like any other node.
-
-## Features
-
-- **Voice-driven task dispatch** — spoken commands are transcribed, reasoned over, and routed to the appropriate node(s)
-- **MCP tool-calling layer** — each node exposes its hardware capabilities as MCP tools (`set_led`, `run_motor`, etc.), which the LLM calls by name
-- **Multi-node fan-out** — a single command can target multiple nodes simultaneously
-- **LCD feedback** — LLM responses are written to each relevant node's display
-- **TTS announcement** — spoken responses are output via the mic node's speaker
-- **Task management** — supports task interruption and deletion via voice mid-execution
 
 ## Hardware
 
-> Node configuration may shift slightly depending on hardware availability. The core architecture remains consistent regardless.
+| Device | Role |
+|---|---|
+| Raspberry Pi 5 | Central node — ASR, LLM inference, MCP dispatch, TTS, MQTT broker |
+| ESP32 (Node 1) | Actuator node — receives and executes MCP commands |
+| ESP32 (Node 2) | Actuator node — receives and executes MCP commands |
 
-| Node | Hardware | Role |
-|---|---|---|
-| Mic Node | ESP32 | Voice input, speaker output, MCP node |
-| Node 2 | ESP32 | MCP node, LCD, actuators |
-| Node 3 | Raspberry Pi 5 | MCP node, LCD, actuators |
+**Actuators (node-dependent):** LEDs, motors, LCD displays, additional peripherals from ELEGOO/SunFounder ESP32 starter kits
 
-**Actuators (node-dependent):** LEDs, motors, additional peripherals from ELEGOO/SunFounder ESP32 starter kits
+> Hardware configuration may shift depending on availability. The core architecture remains consistent regardless of node count.
 
 ## Repo Structure
 
 ```
 herald/
-├── server/          # LLM server: ASR, LLM, TTS, MCP dispatcher
+├── server/          # ASR, LLM, TTS, MCP dispatcher (runs on RPi 5)
 ├── firmware/
-│   ├── mic_node/    # ESP32 mic node firmware
-│   └── node/        # Generic node firmware (ESP32 / RPi)
-├── mcp/             # MCP tool definitions per capability
+│   └── node/        # ESP32 actuator node firmware
+├── mcp/             # MCP tool definitions per node capability
 ├── docs/            # Architecture diagrams, notes
 └── README.md
 ```
 
-## Contributers
+## Team
 
 - Anthony Yalong
 - Vaidehi Gohil
