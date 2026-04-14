@@ -133,18 +133,18 @@ herald/
 
 ```
 herald/
-├── server/
-│   ├── main.py              Pipeline entrypoint
-│   ├── asr.py               Whisper capture + transcription
-│   ├── llm.py               LLM inference + tool call parsing
-│   ├── tts.py               Kokoro synthesis + playback
-│   ├── dispatcher.py        Tool call → MQTT publish
-│   └── tools.py             Tool schemas + handler registry
-├── firmware/
-│   ├── node1/               ELEGOO ESP32 firmware (ESP-IDF)
-│   └── node2/               SunFounder ESP32 firmware (ESP-IDF)
 ├── docs/
-│   └── architecture.md      Full system design and data flow
+│   └── herald_architecture.pdf   Full system design and data flow
+├── firmware/
+│   ├── node1/                    ELEGOO ESP32 firmware (ESP-IDF)
+│   └── node2/                    SunFounder ESP32 firmware (ESP-IDF)
+├── server/
+│   ├── main.py                   Pipeline entrypoint
+│   ├── asr.py                    Whisper capture + transcription
+│   ├── llm.py                    LLM inference + tool call parsing
+│   ├── tts.py                    Kokoro synthesis + playback
+│   ├── dispatcher.py             Tool call → MQTT publish
+│   └── tools.py                  Tool schemas + handler registry
 └── README.md
 ```
 

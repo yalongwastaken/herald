@@ -1,23 +1,44 @@
-# Python
+# ── ESP-IDF ───────────────────────────────────────────────────────────────────
+firmware/node1/build/
+firmware/node2/build/
+firmware/node1/sdkconfig.old
+firmware/node2/sdkconfig.old
+firmware/node1/dependencies.lock
+firmware/node2/dependencies.lock
+firmware/node1/managed_components/
+firmware/node2/managed_components/
+
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*.env
+*.pyo
 .venv/
 venv/
-
-# macOS
-.DS_Store
-
-# VS Code
-.vscode/
-
-# Build artifacts
-build/
+env/
+*.egg-info/
 dist/
-*.o
-*.elf
-*.bin
-*.hex
+build/
 
-# Logs
-*.log
+# ── Models (too large for git) ────────────────────────────────────────────────
+*.gguf
+*.bin
+*.pt
+*.pth
+server/models/*
+!server/models/README.md
+
+# ── Audio scratch files ───────────────────────────────────────────────────────
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
