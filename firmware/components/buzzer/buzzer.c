@@ -1,7 +1,8 @@
 /**
  * @file buzzer.c
  * @author Anthony Yalong
- * @brief
+ * @brief Active buzzer component for herald actuator nodes.
+ *        Provides initialization and timed activation of a GPIO-driven active buzzer.
  */
 
 // ── Includes ──────────────────────────────────────────────────────────────────
