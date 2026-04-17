@@ -2,22 +2,21 @@
  * @file buzzer.h
  * @author Anthony Yalong
  * @brief Active buzzer component for herald actuator nodes.
- *        Provides initialization and timed activation of a GPIO-driven active buzzer.
  */
 #ifndef BUZZER_H
 #define BUZZER_H
 
 // ── Includes ──────────────────────────────────────────────────────────────────
 #include "esp_err.h"
-#include "driver/gpio.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "esp_timer.h"
+#include "soc/gpio_num.h"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /** @brief Buzzer device handle. Holds hardware configuration for a single buzzer instance. */
 typedef struct {
-    gpio_num_t pin;     // GPIO pin connected to buzzer
+    gpio_num_t pin;               // GPIO pin connected to buzzer
+    esp_timer_handle_t timer;     // Handle to ESP timer used to drive buzzer timing
 } buzzer_t;
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -33,12 +32,12 @@ esp_err_t buzzer_init(gpio_num_t pin, buzzer_t *buzzer);
 
 /**
  * @brief Activate the buzzer for a specified duration.
- *        Blocks for the duration of the buzz.
+ *        Non-blocking: returns immediately while timer handles shutdown.
  *
  * @param buzzer        Pointer to initialized buzzer handle
- * @param duration_ms   Duration to activate buzzer in milliseconds
+ * @param duration_us   Duration to activate buzzer in microseconds
  * @return              ESP_OK on success, ESP_ERR_INVALID_ARG if buzzer is NULL
  */
-esp_err_t buzzer_buzz(buzzer_t *buzzer, uint32_t duration_ms);
+esp_err_t buzzer_buzz(buzzer_t *buzzer, uint32_t duration_us);
 
 #endif // BUZZER_H

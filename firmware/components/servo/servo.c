@@ -1,7 +1,7 @@
 /**
  * @file servo.c
  * @author Anthony Yalong
- * @brief 
+ * @brief ESP-IDF MCPWM-based servo driver implementation.
  */
 
 // ── Includes ──────────────────────────────────────────────────────────────────
@@ -10,11 +10,10 @@
 #include "servo.h"
 #include "soc/gpio_num.h"
 #include "driver/mcpwm_prelude.h"
-#include "freertos/FreeRTOS.h"
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-#define MINIMUM_PULSE_WIDTH_TICKS 1000    // 1ms
-#define MAXIMUM_PULSE_WIDTH_TICKS 2000    // 2ms
+#define MINIMUM_PULSE_WIDTH_TICKS 500     // 0.5ms
+#define MAXIMUM_PULSE_WIDTH_TICKS 2500    // 2.5ms
 static const char *TAG = "servo";
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -22,6 +21,12 @@ static const char *TAG = "servo";
 esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     // error management
     esp_err_t ret;
+
+     // sanity check
+    if (servo == NULL) {
+        ESP_LOGE(TAG, "null structure pointer");
+        return ESP_ERR_INVALID_ARG;
+    }
 
     // mcpwm config
     mcpwm_timer_handle_t timer = NULL;
@@ -34,7 +39,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     };
     ret = mcpwm_new_timer(&timer_config, &timer);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed two configure mcpwm timer");
+        ESP_LOGE(TAG, "failed to configure mcpwm timer");
         return ret;
     }
 
@@ -65,7 +70,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     };
     ret = mcpwm_new_comparator(operator, &comparator_config, &comparator);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to configure mcpwm comperator");
+        ESP_LOGE(TAG, "failed to configure mcpwm comparator");
         return ret;
     }
 
@@ -163,13 +168,13 @@ esp_err_t servo_set_angle(uint32_t angle, servo_t *servo) {
 
 esp_err_t servo_read_angle(servo_t *servo, uint32_t *angle) {
     // sanity check
-    if (servo == NULL) {
+    if (servo == NULL || angle == NULL) {
         ESP_LOGE(TAG, "null structure pointer");
         return ESP_ERR_INVALID_ARG;
     }
 
     // return
     *angle = servo->current_angle;
-    ESP_LOGD(TAG, "successully read angle");
+    ESP_LOGD(TAG, "successfully read angle");
     return ESP_OK;
 }

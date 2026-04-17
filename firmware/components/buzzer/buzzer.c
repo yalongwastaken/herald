@@ -2,19 +2,35 @@
  * @file buzzer.c
  * @author Anthony Yalong
  * @brief Active buzzer component for herald actuator nodes.
- *        Provides initialization and timed activation of a GPIO-driven active buzzer.
  */
 
 // ── Includes ──────────────────────────────────────────────────────────────────
 #include "buzzer.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_timer.h"
 #include "driver/gpio.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-const static char *TAG = "buzzer";
+static const char *TAG = "buzzer";
+
+// ── Private API ───────────────────────────────────────────────────────────────
+
+/**
+ * @brief Timer callback to turn the buzzer OFF.
+ *
+ * @param args  GPIO number (passed as void*) identifying the buzzer pin
+ */
+static void buzzer_off_callback(void *args) {
+    gpio_num_t pin = (gpio_num_t)(intptr_t)args;
+
+    esp_err_t ret = gpio_set_level(pin, 0);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "failed to set GPIO %d", (int)pin);
+        return;
+    }
+    ESP_LOGD(TAG, "GPIO %d low", (int)pin);
+}
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -22,7 +38,7 @@ esp_err_t buzzer_init(gpio_num_t pin, buzzer_t *buzzer) {
     // error management
     esp_err_t ret;
 
-    // saniuty check
+    // sanity check
     if (buzzer == NULL) {
         ESP_LOGE(TAG, "null structure pointer");
         return ESP_ERR_INVALID_ARG;
@@ -42,13 +58,27 @@ esp_err_t buzzer_init(gpio_num_t pin, buzzer_t *buzzer) {
         return ret;
     }
 
-    // structure initializaton
+    // callback timer
+    esp_timer_handle_t esp_timer = NULL;
+    esp_timer_create_args_t esp_timer_create_args = {
+        .arg = (void *)(intptr_t)pin,
+        .callback = buzzer_off_callback,
+        .name = "buzzer_off",
+    };
+    ret = esp_timer_create(&esp_timer_create_args, &esp_timer);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "failed to create esp timer");
+        return ret;
+    }
+
+    // structure initialization
     buzzer->pin = pin;
+    buzzer->timer = esp_timer;
     ESP_LOGI(TAG, "initialized on GPIO %d", (int)pin);
     return ESP_OK;
 }
 
-esp_err_t buzzer_buzz(buzzer_t *buzzer, uint32_t duration_ms) {
+esp_err_t buzzer_buzz(buzzer_t *buzzer, uint32_t duration_us) {
     // error management
     esp_err_t ret;
 
@@ -58,6 +88,7 @@ esp_err_t buzzer_buzz(buzzer_t *buzzer, uint32_t duration_ms) {
         return ESP_ERR_INVALID_ARG;
     }
 
+    // set GPIO high (activate buzzer)
     ret = gpio_set_level(buzzer->pin, 1);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to set GPIO %d", (int)buzzer->pin);
@@ -65,14 +96,31 @@ esp_err_t buzzer_buzz(buzzer_t *buzzer, uint32_t duration_ms) {
     }
     ESP_LOGD(TAG, "GPIO %d high", (int)buzzer->pin);
 
-    vTaskDelay(pdMS_TO_TICKS(duration_ms));
+    // ensure timer is not already running
+    ret = esp_timer_stop(buzzer->timer);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "failed to stop callback timer");
 
-    ret = gpio_set_level(buzzer->pin, 0);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set GPIO %d", (int)buzzer->pin);
+        // rollback: turn buzzer OFF
+        gpio_set_level(buzzer->pin, 0);
+        ESP_LOGD(TAG, "GPIO %d low (rollback)", (int)buzzer->pin);
+
         return ret;
     }
-    ESP_LOGD(TAG, "GPIO %d low", (int)buzzer->pin);
+    ESP_LOGD(TAG, "callback timer stopped/reset");
+
+    // start timer
+    ret = esp_timer_start_once(buzzer->timer, duration_us);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "failed to start callback timer");
+
+        // rollback: turn buzzer OFF
+        gpio_set_level(buzzer->pin, 0);
+        ESP_LOGD(TAG, "GPIO %d low (rollback)", (int)buzzer->pin);
+
+        return ret;
+    }
+    ESP_LOGD(TAG, "callback timer started");
 
     return ESP_OK;
 }

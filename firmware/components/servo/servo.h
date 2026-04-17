@@ -1,8 +1,7 @@
 /**
  * @file servo.h
  * @author Anthony Yalong
- * @brief SG90 servo motor component. MCPWM-driven absolute angle positioning for 
- *        actuator nodes.
+ * @brief SG90 servo motor component. MCPWM-driven absolute angle positioning for actuator nodes.
  */
 #ifndef SERVO_H
 #define SERVO_H
