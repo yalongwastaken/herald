@@ -313,12 +313,14 @@ esp_err_t dht11_update(dht11_t *dht11) {
     ret = dht11_send_start_signal(dht11->pin);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to send start signal");
+        portENABLE_INTERRUPTS();
         return ret;
     }
 
     // total timeout check
     if ((esp_timer_get_time() - start_time) > DHT11_TOTAL_TIMEOUT_US) {
         ESP_LOGE(TAG, "total timeout after start signal");
+        portENABLE_INTERRUPTS();
         return ESP_ERR_TIMEOUT;
     }
 
@@ -326,12 +328,14 @@ esp_err_t dht11_update(dht11_t *dht11) {
     ret = dht11_wait_for_response(dht11->pin);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to receive sensor response");
+        portENABLE_INTERRUPTS();
         return ret;
     }
 
     // total timeout check
     if ((esp_timer_get_time() - start_time) > DHT11_TOTAL_TIMEOUT_US) {
         ESP_LOGE(TAG, "total timeout after ACK");
+        portENABLE_INTERRUPTS();
         return ESP_ERR_TIMEOUT;
     }
 
@@ -339,12 +343,14 @@ esp_err_t dht11_update(dht11_t *dht11) {
     ret = dht11_read_data(dht11->pin, data);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to read sensor data");
+        portENABLE_INTERRUPTS();
         return ret;
     }
 
     // total timeout check
     if ((esp_timer_get_time() - start_time) > DHT11_TOTAL_TIMEOUT_US) {
         ESP_LOGE(TAG, "total timeout after data read");
+        portENABLE_INTERRUPTS();
         return ESP_ERR_TIMEOUT;
     }
 
