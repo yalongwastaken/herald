@@ -43,10 +43,10 @@ esp_err_t servo_set_angle(uint32_t angle, servo_t *servo);
 /**
  * @brief Read the current servo angle.
  * 
- * @param servo     Pointer to an initialized servo handle
  * @param angle     Pointer to variable where the angle will be stored
- * @return          ESP_OK on success, ESP_ERR_INVALID_ARG if servo or angle is NULL
+ * @param servo     Pointer to an initialized servo handle
+ * @return          ESP_OK on success, ESP_ERR_INVALID_ARG if servo NULL
  */
-esp_err_t servo_read_angle(servo_t *servo, uint32_t *angle);
+esp_err_t servo_read_angle(uint32_t *angle, servo_t *servo);
 
 #endif // SERVO_H

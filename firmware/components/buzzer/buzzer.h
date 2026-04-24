@@ -40,4 +40,12 @@ esp_err_t buzzer_init(gpio_num_t pin, buzzer_t *buzzer);
  */
 esp_err_t buzzer_buzz(buzzer_t *buzzer, uint32_t duration_us);
 
+/**
+ * @brief Stop the buzzer regardless of state.
+ *
+ * @param buzzer        Pointer to initialized buzzer handle
+ * @return              ESP_OK on success, ESP_ERR_INVALID_ARG if buzzer is NULL
+ */
+esp_err_t buzzer_stop(buzzer_t *buzzer);
+
 #endif // BUZZER_H

@@ -10,7 +10,6 @@
 #include "esp_err.h"
 #include "soc/gpio_num.h"
 
-// ── Configuration ─────────────────────────────────────────────────────────────
 #define DHT11_START_SIGNAL_LOW_US     18000
 #define DHT11_BIT_THRESHOLD_US        50
 #define DHT11_BIT_TIMEOUT_US          120

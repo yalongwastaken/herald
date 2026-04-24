@@ -9,7 +9,7 @@
 // ── Includes ──────────────────────────────────────────────────────────────────
 #include <stdint.h>
 
-// ── Type Definitions ──────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 /**
  * @brief Font descriptor structure.
@@ -21,8 +21,6 @@ typedef struct {
     uint8_t height;         ///< Character height in pixels
     const uint8_t *data;    ///< Pointer to font bitmap data
 } oled_font_t;
-
-// ── Font Data ─────────────────────────────────────────────────────────────────
 
 /**
  * @brief 5x8 ASCII font table.
@@ -138,8 +136,6 @@ static const uint8_t font5x8[] = {
     0x08,0x04,0x08,0x10,0x08, // ~
     0x00,0x00,0x00,0x00,0x00  // DEL
 };
-
-// ── Font Instances ────────────────────────────────────────────────────────────
 
 /**
  * @brief Default 5x8 font instance.

@@ -16,21 +16,25 @@
 // ── Configuration ─────────────────────────────────────────────────────────────
 static const char *TAG = "dht11";
 
-// ── Private Function Prototypes ───────────────────────────────────────────────
+// ── Private API ───────────────────────────────────────────────────────────────
 
 /**
  * @brief Set GPIO pin as output.
  *
  * @param pin   GPIO number
  */
-static inline void dht11_set_output(gpio_num_t pin);
+static inline void dht11_set_output(gpio_num_t pin) {
+    gpio_set_direction(pin, GPIO_MODE_OUTPUT);
+}
 
 /**
  * @brief Set GPIO pin as input.
  *
  * @param pin   GPIO number
  */
-static inline void dht11_set_input(gpio_num_t pin);
+static inline void dht11_set_input(gpio_num_t pin) {
+    gpio_set_direction(pin, GPIO_MODE_INPUT);
+}
 
 /**
  * @brief Send DHT11 start signal to initiate communication.
@@ -38,71 +42,6 @@ static inline void dht11_set_input(gpio_num_t pin);
  * @param pin   GPIO number
  * @return      ESP_OK on success, error code on failure
  */
-static esp_err_t dht11_send_start_signal(gpio_num_t pin);
-
-/**
- * @brief Wait for GPIO to reach a specified logic level within a timeout.
- *
- * @param pin           GPIO number
- * @param level         Target logic level (0 or 1)
- * @param timeout_us    Timeout in microseconds
- * @return              ESP_OK on success, ESP_ERR_TIMEOUT on timeout
- */
-static esp_err_t dht11_wait_for_level(gpio_num_t pin, int level, uint32_t timeout_us);
-
-/**
- * @brief Wait for DHT11 response sequence after start signal.
- *
- * @param pin   GPIO number
- * @return      ESP_OK on success, error code on failure
- */
-static esp_err_t dht11_wait_for_response(gpio_num_t pin);
-
-/**
- * @brief Read a single data bit from DHT11.
- *
- * @param pin   GPIO number
- * @param bit   Pointer to variable where the bit will be stored (0 or 1)
- * @return      ESP_OK on success, error code on failure
- */
-static esp_err_t dht11_read_bit(gpio_num_t pin, uint8_t *bit);
-
-/**
- * @brief Read a single byte (8 bits) from DHT11.
- *
- * @param pin   GPIO number
- * @param byte  Pointer to variable where the byte will be stored
- * @return      ESP_OK on success, error code on failure
- */
-static esp_err_t dht11_read_byte(gpio_num_t pin, uint8_t *byte);
-
-/**
- * @brief Read full 5-byte data frame from DHT11.
- *
- * @param pin   GPIO number
- * @param data  Buffer to store 5 bytes of sensor data
- * @return      ESP_OK on success, error code on failure
- */
-static esp_err_t dht11_read_data(gpio_num_t pin, uint8_t data[5]);
-
-/**
- * @brief Validate DHT11 checksum.
- *
- * @param data  5-byte data buffer (humidity, temperature, checksum)
- * @return      true if checksum is valid, false otherwise
- */
-static bool dht11_validate_checksum(uint8_t data[5]);
-
-// ── Private API ───────────────────────────────────────────────────────────────
-
-static inline void dht11_set_output(gpio_num_t pin) {
-    gpio_set_direction(pin, GPIO_MODE_OUTPUT);
-}
-
-static inline void dht11_set_input(gpio_num_t pin) {
-    gpio_set_direction(pin, GPIO_MODE_INPUT);
-}
-
 static esp_err_t dht11_send_start_signal(gpio_num_t pin) {
     esp_err_t ret;
 
@@ -112,7 +51,7 @@ static esp_err_t dht11_send_start_signal(gpio_num_t pin) {
     // pull line low
     ret = gpio_set_level(pin, 0);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set level on GPIO %d", (int)pin);
+        ESP_LOGE(TAG, "failed to set level on gpio %d", (int)pin);
         return ret;
     }
 
@@ -122,7 +61,7 @@ static esp_err_t dht11_send_start_signal(gpio_num_t pin) {
     // release line (go HIGH briefly)
     ret = gpio_set_level(pin, 1);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set level on GPIO %d", (int)pin);
+        ESP_LOGE(TAG, "failed to set level on gpio %d", (int)pin);
         return ret;
     }
 
@@ -132,13 +71,21 @@ static esp_err_t dht11_send_start_signal(gpio_num_t pin) {
     return ESP_OK;
 }
 
+/**
+ * @brief Wait for GPIO to reach a specified logic level within a timeout.
+ *
+ * @param pin           GPIO number
+ * @param level         Target logic level (0 or 1)
+ * @param timeout_us    Timeout in microseconds
+ * @return              ESP_OK on success, ESP_ERR_TIMEOUT on timeout
+ */
 static esp_err_t dht11_wait_for_level(gpio_num_t pin, int level, uint32_t timeout_us) {
     int64_t start_time = esp_timer_get_time();
 
     // wait until pin matches target level or timeout occurs
     while (gpio_get_level(pin) != level) {
         if ((esp_timer_get_time() - start_time) > timeout_us) {
-            ESP_LOGE(TAG, "timeout waiting for level %d on GPIO %d", level, (int)pin);
+            ESP_LOGE(TAG, "timeout waiting for level %d on gpio %d", level, (int)pin);
             return ESP_ERR_TIMEOUT;
         }
     }
@@ -146,26 +93,39 @@ static esp_err_t dht11_wait_for_level(gpio_num_t pin, int level, uint32_t timeou
     return ESP_OK;
 }
 
+/**
+ * @brief Wait for DHT11 response sequence after start signal.
+ *
+ * @param pin   GPIO number
+ * @return      ESP_OK on success, error code on failure
+ */
 static esp_err_t dht11_wait_for_response(gpio_num_t pin) {
     esp_err_t ret;
 
     // wait for sensor LOW response
     ret = dht11_wait_for_level(pin, 0, DHT11_TIMEOUT_US);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "timeout waiting for sensor LOW response");
+        ESP_LOGE(TAG, "timeout waiting for sensor low response");
         return ret;
     }
 
     // wait for sensor HIGH response
     ret = dht11_wait_for_level(pin, 1, DHT11_TIMEOUT_US);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "timeout waiting for sensor HIGH response");
+        ESP_LOGE(TAG, "timeout waiting for sensor high response");
         return ret;
     }
 
     return ESP_OK;
 }
 
+/**
+ * @brief Read a single data bit from DHT11.
+ *
+ * @param pin   GPIO number
+ * @param bit   Pointer to variable where the bit will be stored (0 or 1)
+ * @return      ESP_OK on success, error code on failure
+ */
 static esp_err_t dht11_read_bit(gpio_num_t pin, uint8_t *bit) {
     esp_err_t ret;
 
@@ -197,6 +157,13 @@ static esp_err_t dht11_read_bit(gpio_num_t pin, uint8_t *bit) {
     return ESP_OK;
 }
 
+/**
+ * @brief Read a single byte (8 bits) from DHT11.
+ *
+ * @param pin   GPIO number
+ * @param byte  Pointer to variable where the byte will be stored
+ * @return      ESP_OK on success, error code on failure
+ */
 static esp_err_t dht11_read_byte(gpio_num_t pin, uint8_t *byte) {
     esp_err_t ret;
     uint8_t value = 0;
@@ -224,6 +191,13 @@ static esp_err_t dht11_read_byte(gpio_num_t pin, uint8_t *byte) {
     return ESP_OK;
 }
 
+/**
+ * @brief Read full 5-byte data frame from DHT11.
+ *
+ * @param pin   GPIO number
+ * @param data  Buffer to store 5 bytes of sensor data
+ * @return      ESP_OK on success, error code on failure
+ */
 static esp_err_t dht11_read_data(gpio_num_t pin, uint8_t data[5]) {
     esp_err_t ret;
 
@@ -244,6 +218,12 @@ static esp_err_t dht11_read_data(gpio_num_t pin, uint8_t data[5]) {
     return ESP_OK;
 }
 
+/**
+ * @brief Validate DHT11 checksum.
+ *
+ * @param data  5-byte data buffer (humidity, temperature, checksum)
+ * @return      true if checksum is valid, false otherwise
+ */
 static bool dht11_validate_checksum(uint8_t data[5]) {
     uint8_t sum = data[0] + data[1] + data[2] + data[3];
     return (sum == data[4]);
@@ -271,7 +251,7 @@ esp_err_t dht11_init(gpio_num_t pin, dht11_t *dht11) {
 
     ret = gpio_config(&config);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to configure GPIO %d", (int)pin);
+        ESP_LOGE(TAG, "failed to configure gpio %d", (int)pin);
         return ret;
     }
 
@@ -281,12 +261,11 @@ esp_err_t dht11_init(gpio_num_t pin, dht11_t *dht11) {
     dht11->humidity = -1.0f;
     dht11->last_update = 0;
 
-    ESP_LOGI(TAG, "initialized on GPIO %d", (int)pin);
+    ESP_LOGD(TAG, "initialized on gpio %d", (int)pin);
     return ESP_OK;
 }
 
 esp_err_t dht11_update(dht11_t *dht11) {
-    // initialization
     esp_err_t ret;
     uint8_t data[5];
     int64_t start_time;
@@ -299,7 +278,7 @@ esp_err_t dht11_update(dht11_t *dht11) {
 
     // check last read
     if ((esp_timer_get_time() - dht11->last_update) < DHT11_MIN_INTERVAL_US) {
-        ESP_LOGW(TAG, "DHT11 read too soon (rate limited)");
+        ESP_LOGE(TAG, "read too soon, rate limited");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -334,7 +313,7 @@ esp_err_t dht11_update(dht11_t *dht11) {
 
     // total timeout check
     if ((esp_timer_get_time() - start_time) > DHT11_TOTAL_TIMEOUT_US) {
-        ESP_LOGE(TAG, "total timeout after ACK");
+        ESP_LOGE(TAG, "total timeout after ack");
         portENABLE_INTERRUPTS();
         return ESP_ERR_TIMEOUT;
     }
@@ -368,6 +347,7 @@ esp_err_t dht11_update(dht11_t *dht11) {
     dht11->temperature = data[2];
     dht11->last_update = esp_timer_get_time();
 
+    ESP_LOGD(TAG, "temperature: %.1f, humidity: %.1f", dht11->temperature, dht11->humidity);
     return ESP_OK;
 }
 
@@ -381,5 +361,6 @@ esp_err_t dht11_read(dht11_t *dht11, float *temperature, float *humidity) {
     *temperature = dht11->temperature;
     *humidity = dht11->humidity;
 
+    ESP_LOGD(TAG, "temperature: %.1f, humidity: %.1f", *temperature, *humidity);
     return ESP_OK;
 }

@@ -12,7 +12,6 @@
 #include <stdbool.h>
 #include "font.h"
 
-// ── Configuration ─────────────────────────────────────────────────────────────
 #define OLED_WIDTH 128
 #define OLED_HEIGHT 64
 #define OLED_BUF_SIZE (OLED_WIDTH * OLED_HEIGHT / 8)

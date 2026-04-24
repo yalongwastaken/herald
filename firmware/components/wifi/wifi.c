@@ -25,7 +25,7 @@ static const char *TAG = "wifi";
 static int s_retry_count = 0;
 static EventGroupHandle_t s_wifi_event_group = NULL;
 
-// ── Private Function Prototypes ───────────────────────────────────────────────
+// ── Private API ───────────────────────────────────────────────────────────────
 
 /**
  * @brief Wi-Fi and IP event handler.
@@ -35,10 +35,6 @@ static EventGroupHandle_t s_wifi_event_group = NULL;
  * @param event_id    Specific event ID
  * @param event_data  Pointer to event-specific data
  */
-static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
-
-// ── Private API ───────────────────────────────────────────────────────────────
-
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
@@ -47,8 +43,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         if (s_retry_count < WIFI_MAX_RETRY) {
             esp_wifi_connect();
             s_retry_count++;
-            ESP_LOGI(TAG, "retrying Wi-Fi connection (%d/%d)...",
-                     s_retry_count, WIFI_MAX_RETRY);
         }
         else {
             ESP_LOGE(TAG, "failed to connect after %d attempts", WIFI_MAX_RETRY);
@@ -61,9 +55,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
             return;
         }
 
-        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         s_retry_count = 0;
-        ESP_LOGI(TAG, "connected! ip: " IPSTR, IP2STR(&event->ip_info.ip));
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
@@ -172,11 +164,12 @@ esp_err_t wifi_init(const char *ssid, const char *password) {
     // block until connected or failed
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
                                            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                                           pdFALSE,   // don't clear bits
-                                           pdFALSE,   // wait for either bit
+                                           pdFALSE,
+                                           pdFALSE,
                                            portMAX_DELAY);
 
     if (bits & WIFI_CONNECTED_BIT) {
+        ESP_LOGD(TAG, "wifi connected");
         return ESP_OK;
     }
 
