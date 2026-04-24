@@ -22,7 +22,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     // error management
     esp_err_t ret;
 
-     // sanity check
+    // sanity check
     if (servo == NULL) {
         ESP_LOGE(TAG, "null structure pointer");
         return ESP_ERR_INVALID_ARG;
@@ -44,18 +44,18 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     }
 
     // mcpwm operator
-    mcpwm_oper_handle_t operator = NULL;
+    mcpwm_oper_handle_t mcpwm_operator = NULL;
     mcpwm_operator_config_t operator_config = {
         .group_id = 0,
     };
-    ret = mcpwm_new_operator(&operator_config, &operator);
+    ret = mcpwm_new_operator(&operator_config, &mcpwm_operator);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to configure mcpwm operator");
         return ret;
     }
 
     // mcpwm operator & timer connection
-    ret = mcpwm_operator_connect_timer(operator, timer);
+    ret = mcpwm_operator_connect_timer(mcpwm_operator, timer);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to connect mcpwm operator & mcpwm timer");
         return ret;
@@ -68,7 +68,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
             .update_cmp_on_tez = true,
         },
     };
-    ret = mcpwm_new_comparator(operator, &comparator_config, &comparator);
+    ret = mcpwm_new_comparator(mcpwm_operator, &comparator_config, &comparator);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to configure mcpwm comparator");
         return ret;
@@ -79,7 +79,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     mcpwm_generator_config_t generator_config = {
         .gen_gpio_num = pin,
     };
-    ret = mcpwm_new_generator(operator, &generator_config, &generator);
+    ret = mcpwm_new_generator(mcpwm_operator, &generator_config, &generator);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to configure mcpwm generator");
         return ret;
@@ -95,7 +95,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
         )
     );
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set generator HIGH on timer EMPTY event");
+        ESP_LOGE(TAG, "failed to set generator high on timer empty event");
         return ret;
     }
 
@@ -109,7 +109,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
         )
     );
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set generator LOW on compare event");
+        ESP_LOGE(TAG, "failed to set generator low on compare event");
         return ret;
     }
 
@@ -121,10 +121,7 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     }
 
     // define timer start & stop
-    ret = mcpwm_timer_start_stop(
-        timer,
-        MCPWM_TIMER_START_NO_STOP
-    );
+    ret = mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to enable timer start & stop");
         return ret;
@@ -134,12 +131,14 @@ esp_err_t servo_init(gpio_num_t pin, servo_t *servo) {
     servo->comparator = comparator;
     servo->current_angle = 0;
     servo->pin = pin;
-    ESP_LOGI(TAG, "initialized on GPIO %d", (int)pin);
-
+    ESP_LOGD(TAG, "initialized on gpio %d", (int)pin);
     return ESP_OK;
 }
 
 esp_err_t servo_set_angle(uint32_t angle, servo_t *servo) {
+    // error management
+    esp_err_t ret;
+
     // sanity check
     if (servo == NULL) {
         ESP_LOGE(TAG, "null structure pointer");
@@ -155,7 +154,7 @@ esp_err_t servo_set_angle(uint32_t angle, servo_t *servo) {
     uint32_t pulse_width_ticks = MINIMUM_PULSE_WIDTH_TICKS + (angle * (MAXIMUM_PULSE_WIDTH_TICKS - MINIMUM_PULSE_WIDTH_TICKS)) / 180;
 
     // set pulse width
-    esp_err_t ret = mcpwm_comparator_set_compare_value(servo->comparator, pulse_width_ticks);
+    ret = mcpwm_comparator_set_compare_value(servo->comparator, pulse_width_ticks);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "failed to set angle");
         return ret;
@@ -163,10 +162,11 @@ esp_err_t servo_set_angle(uint32_t angle, servo_t *servo) {
 
     // update state
     servo->current_angle = angle;
+    ESP_LOGD(TAG, "angle set to %lu", angle);
     return ESP_OK;
 }
 
-esp_err_t servo_read_angle(servo_t *servo, uint32_t *angle) {
+esp_err_t servo_read_angle(uint32_t *angle, servo_t *servo) {
     // sanity check
     if (servo == NULL || angle == NULL) {
         ESP_LOGE(TAG, "null structure pointer");
@@ -175,6 +175,6 @@ esp_err_t servo_read_angle(servo_t *servo, uint32_t *angle) {
 
     // return
     *angle = servo->current_angle;
-    ESP_LOGD(TAG, "successfully read angle");
+    ESP_LOGD(TAG, "angle read: %lu", *angle);
     return ESP_OK;
 }
