@@ -12,6 +12,7 @@ For fan-out commands that target multiple nodes, respond with a JSON array:
 [{{"tool": "<tool_name>", "node": "<node_id>", "arguments": {{<args>}}}}, ...]
 When no tool applies, respond with a short plain-text sentence (max 20 words).
 Never explain your reasoning. Never return anything other than JSON or a sentence.
+Always use JSON boolean values true or false, never strings like "true" or "false".
 Available nodes and tools:
 {tool_schemas}"""
 

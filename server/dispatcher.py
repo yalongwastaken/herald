@@ -93,7 +93,7 @@ class Dispatcher:
     def _confirmation_string(self, tool_name: str, node_id: str, arguments: dict) -> str:
         """Generate a natural language confirmation string for TTS."""
         confirmations = {
-            "set_relay": lambda a: f"Relay on {node_id} turned {'on' if a.get('state') else 'off'}.",
+            "set_relay": lambda a: f"Relay on {node_id} turned {'on' if str(a.get('state')).lower() == 'true' else 'off'}.",
             "move_servo": lambda a: f"Servo on {node_id} moved to {a.get('angle')} degrees.",
             "buzz": lambda a: f"Buzzer on {node_id} activated.",
             "set_display": lambda a: f"Display on {node_id} updated.",
