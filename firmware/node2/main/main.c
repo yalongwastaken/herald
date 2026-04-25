@@ -24,8 +24,8 @@
 #include "lcd.h"
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-#define WIFI_SSID               "herald"        // PLACEHOLDER
-#define WIFI_PASSWORD           "herald123"     // PLACEHOLDER
+#define WIFI_SSID               "herald"
+#define WIFI_PASSWORD           "herald1234"
 
 #define CMD_QUEUE_DEPTH         8
 #define CMD_PAYLOAD_MAX_LEN     256

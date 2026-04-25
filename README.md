@@ -145,6 +145,8 @@ herald/
 │   ├── tts.py                    Kokoro synthesis + playback
 │   ├── dispatcher.py             Tool call → MQTT publish
 │   └── tools.py                  Tool schemas + handler registry
+├── tests/
+│   └── server/
 └── README.md
 ```
 
