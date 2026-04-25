@@ -24,21 +24,41 @@
 #include "oled.h"
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-#define WIFI_SSID               "herald"        // PLACEHOLDER
-#define WIFI_PASSWORD           "herald123"     // PLACEHOLDER
+#define WIFI_SSID               "herald"
+#define WIFI_PASSWORD           "herald1234"
 
 #define CMD_QUEUE_DEPTH         8
 #define CMD_PAYLOAD_MAX_LEN     256
 
 #define PIN_OLED_SDA            GPIO_NUM_21
 #define PIN_OLED_SCL            GPIO_NUM_22
-#define PIN_DHT11               GPIO_NUM_4
+#define PIN_DHT11               GPIO_NUM_5
 #define PIN_BUZZER              GPIO_NUM_18
 #define PIN_SERVO               GPIO_NUM_19
 #define PIN_RELAY               GPIO_NUM_14
 
 #define I2C_MASTER_FREQ_HZ      400000
 #define OLED_I2C_ADDR           0x3C
+
+// ── OLED layout (5x8 font: 21 chars wide, 8 rows) ────────────────────────────
+// Row 0 (y=0)  — "Herald Node 1"       static header
+// Row 1 (y=8)  — "WiFi:-- MQTT:--"     connection status
+// Row 2 (y=16) — "--------------------" separator
+// Row 3 (y=24) — "Tool: <tool_name>"   last dispatched tool
+// Row 4 (y=32) — "Args: <args>"        last dispatched args
+// Row 5 (y=40) — "--------------------" separator
+// Row 6 (y=48) — "T:--.-C  H:--.-%"   last DHT11 reading
+// Row 7 (y=56) — spare
+
+#define OLED_ROW_HEADER         0
+#define OLED_ROW_STATUS         8
+#define OLED_ROW_SEP1           16
+#define OLED_ROW_TOOL           24
+#define OLED_ROW_ARGS           32
+#define OLED_ROW_SEP2           40
+#define OLED_ROW_SENSOR         48
+
+#define OLED_SEP                "---------------------"
 
 static const char *TAG = "node1";
 
@@ -50,12 +70,86 @@ static relay_t  s_relay;
 static dht11_t  s_dht11;
 static oled_t   s_oled;
 
+// ── Connection state (updated by wifi/mqtt callbacks) ─────────────────────────
+static bool s_wifi_ok  = false;
+static bool s_mqtt_ok  = false;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 /** @brief Command message passed through the FreeRTOS queue. */
 typedef struct {
     char payload[CMD_PAYLOAD_MAX_LEN];  // raw JSON string from MQTT
 } cmd_msg_t;
+
+// ── OLED helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * @brief Write a single row, padding with spaces to clear leftover characters.
+ *
+ * @param y     Y coordinate (pixel row)
+ * @param str   String to write (max 21 chars)
+ */
+static void oled_write_row(uint8_t y, const char *str) {
+    char buf[22];
+    snprintf(buf, sizeof(buf), "%-21s", str);
+    oled_write_string(&s_oled, 0, y, buf, &oled_font_5x8);
+}
+
+/**
+ * @brief Redraw the status row from current s_wifi_ok / s_mqtt_ok state.
+ */
+static void oled_update_status(void) {
+    char buf[22];
+    snprintf(buf, sizeof(buf), "WiFi:%-2s MQTT:%-2s",
+             s_wifi_ok ? "OK" : "--",
+             s_mqtt_ok ? "OK" : "--");
+    oled_write_row(OLED_ROW_STATUS, buf);
+    oled_flush(&s_oled);
+}
+
+/**
+ * @brief Redraw the command rows (tool + args).
+ *
+ * @param tool  Tool name string
+ * @param args  Args string (caller formats this)
+ */
+static void oled_update_command(const char *tool, const char *args) {
+    char buf[22];
+    snprintf(buf, sizeof(buf), "Tool: %s", tool);
+    oled_write_row(OLED_ROW_TOOL, buf);
+    snprintf(buf, sizeof(buf), "Args: %s", args);
+    oled_write_row(OLED_ROW_ARGS, buf);
+    oled_flush(&s_oled);
+}
+
+/**
+ * @brief Redraw the sensor row with latest temperature and humidity.
+ *
+ * @param temperature   Temperature in Celsius
+ * @param humidity      Relative humidity in percent
+ */
+static void oled_update_sensor(float temperature, float humidity) {
+    char buf[22];
+    snprintf(buf, sizeof(buf), "T:%.1fC  H:%.0f%%", temperature, humidity);
+    oled_write_row(OLED_ROW_SENSOR, buf);
+    oled_flush(&s_oled);
+}
+
+/**
+ * @brief Draw the static portions of the display (header + separators).
+ *        Called once on boot after oled_init.
+ */
+static void oled_draw_static(void) {
+    oled_clear(&s_oled);
+    oled_write_row(OLED_ROW_HEADER, "Herald Node 1");
+    oled_write_row(OLED_ROW_STATUS, "WiFi:-- MQTT:--");
+    oled_write_row(OLED_ROW_SEP1,   OLED_SEP);
+    oled_write_row(OLED_ROW_TOOL,   "Tool: --");
+    oled_write_row(OLED_ROW_ARGS,   "Args: --");
+    oled_write_row(OLED_ROW_SEP2,   OLED_SEP);
+    oled_write_row(OLED_ROW_SENSOR, "T:--.-C  H:---%");
+    oled_flush(&s_oled);
+}
 
 // ── Private API ───────────────────────────────────────────────────────────────
 
@@ -90,6 +184,9 @@ static void dispatch_command(const char *payload) {
         if (args == NULL) { ESP_LOGE(TAG, "missing arguments for buzz"); cJSON_Delete(root); return; }
         cJSON *duration = cJSON_GetObjectItem(args, "duration_ms");
         if (cJSON_IsNumber(duration) && duration->valueint > 0) {
+            char args_buf[16];
+            snprintf(args_buf, sizeof(args_buf), "%dms", duration->valueint);
+            oled_update_command(tool_name, args_buf);
             buzzer_buzz(&s_buzzer, (uint32_t)duration->valueint * 1000);
         } else {
             ESP_LOGE(TAG, "invalid or missing duration_ms for buzz");
@@ -99,6 +196,9 @@ static void dispatch_command(const char *payload) {
         if (args == NULL) { ESP_LOGE(TAG, "missing arguments for move_servo"); cJSON_Delete(root); return; }
         cJSON *angle = cJSON_GetObjectItem(args, "angle");
         if (cJSON_IsNumber(angle)) {
+            char args_buf[16];
+            snprintf(args_buf, sizeof(args_buf), "%ddeg", angle->valueint);
+            oled_update_command(tool_name, args_buf);
             servo_set_angle((uint32_t)angle->valueint, &s_servo);
         } else {
             ESP_LOGE(TAG, "invalid or missing angle for move_servo");
@@ -108,7 +208,9 @@ static void dispatch_command(const char *payload) {
         if (args == NULL) { ESP_LOGE(TAG, "missing arguments for set_relay"); cJSON_Delete(root); return; }
         cJSON *state = cJSON_GetObjectItem(args, "state");
         if (cJSON_IsBool(state)) {
-            relay_set(cJSON_IsTrue(state), &s_relay);
+            bool on = cJSON_IsTrue(state);
+            oled_update_command(tool_name, on ? "on" : "off");
+            relay_set(on, &s_relay);
         } else {
             ESP_LOGE(TAG, "invalid or missing state for set_relay");
         }
@@ -121,14 +223,21 @@ static void dispatch_command(const char *payload) {
             cJSON_Delete(root);
             return;
         }
+        // set_display takes over the full screen — redraw static frame after
         oled_clear(&s_oled);
         oled_write_string(&s_oled, 0, 0, message->valuestring, &oled_font_5x8);
         oled_flush(&s_oled);
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        oled_draw_static();
+        oled_update_status();
     }
     else if (strcmp(tool_name, "get_temp_humidity") == 0) {
+        oled_update_command(tool_name, "reading...");
+
         esp_err_t ret = dht11_update(&s_dht11);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "dht11 update failed");
+            oled_update_command(tool_name, "read failed");
             cJSON_Delete(root);
             return;
         }
@@ -137,9 +246,13 @@ static void dispatch_command(const char *payload) {
         ret = dht11_read(&s_dht11, &temperature, &humidity);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "dht11 read failed");
+            oled_update_command(tool_name, "read failed");
             cJSON_Delete(root);
             return;
         }
+
+        oled_update_sensor(temperature, humidity);
+        oled_update_command(tool_name, "done");
 
         char buf[64];
         snprintf(buf, sizeof(buf), "{\"temperature\":%.1f,\"humidity\":%.1f}", temperature, humidity);
@@ -147,12 +260,14 @@ static void dispatch_command(const char *payload) {
     }
     else if (strcmp(tool_name, "stop") == 0) {
         ESP_LOGW(TAG, "stop received — halting all actuators");
+        oled_update_command(tool_name, "all stopped");
         relay_set(false, &s_relay);
         servo_set_angle(90, &s_servo);
         buzzer_stop(&s_buzzer);
     }
     else {
         ESP_LOGW(TAG, "unknown tool: %s", tool_name);
+        oled_update_command(tool_name, "unknown");
     }
 
     cJSON_Delete(root);
@@ -196,6 +311,26 @@ void mqtt_on_data(const char *payload, int len) {
     }
 }
 
+/**
+ * @brief Called by wifi component on connection state change.
+ *
+ * @param connected     true if connected, false if disconnected
+ */
+void wifi_on_state_change(bool connected) {
+    s_wifi_ok = connected;
+    oled_update_status();
+}
+
+/**
+ * @brief Called by herald_mqtt_client on connection state change.
+ *
+ * @param connected     true if connected, false if disconnected
+ */
+void mqtt_on_state_change(bool connected) {
+    s_mqtt_ok = connected;
+    oled_update_status();
+}
+
 void app_main(void) {
     esp_err_t ret;
 
@@ -235,6 +370,9 @@ void app_main(void) {
         return;
     }
 
+    // draw static layout immediately — visible during rest of init
+    oled_draw_static();
+
     ret = dht11_init(PIN_DHT11, &s_dht11);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "dht11 init failed — halting");
@@ -266,14 +404,14 @@ void app_main(void) {
         return;
     }
 
-    // connect to wi-fi
+    // connect to wi-fi (status row updates via wifi_on_state_change callback)
     ret = wifi_init(WIFI_SSID, WIFI_PASSWORD);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "wifi init failed — halting");
         return;
     }
 
-    // connect to mqtt broker
+    // connect to mqtt broker (status row updates via mqtt_on_state_change callback)
     ret = mqtt_client_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "mqtt init failed — halting");

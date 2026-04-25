@@ -1,0 +1,84 @@
+{
+  "asr": {
+    "load_time_s": 0.5528688430786133,
+    "mean_latency_s": 0.48478098869323727,
+    "mean_rtf": 0.17947946328091358,
+    "mean_wer": 0.0
+  },
+  "llm": {
+    "load_time_s": 2.0844290256500244,
+    "mean_latency_s": 1.123285848753793,
+    "mean_gen_tps": 28.923731470755047,
+    "tool_call_accuracy_pct": 85.71428571428571
+  },
+  "tts": {
+    "load_time_s": 0.581428050994873,
+    "voices": {
+      "af_heart": {
+        "mean_latency_s": 0.7972656106948852,
+        "mean_rtf": 0.30489257962376315
+      },
+      "af_bella": {
+        "mean_latency_s": 0.8469210577011108,
+        "mean_rtf": 0.3338683670738062
+      }
+    }
+  },
+  "pipeline": {
+    "load_time_s": 3.2027251720428467,
+    "mean_total_latency_s": 4.202643823623657,
+    "pass_rate": "4/5",
+    "runs": [
+      {
+        "prompt": "turn on the relay",
+        "transcript": "Turn on the relay.",
+        "response": "{\"tool\": \"set_relay\", \"node\": \"node1\", \"arguments\": {\"state\": true}}",
+        "asr_time_s": 0.4389951229095459,
+        "llm_time_s": 6.495010137557983,
+        "tts_time_s": 1.2861340045928955,
+        "total_time_s": 8.220139265060425,
+        "correct": true
+      },
+      {
+        "prompt": "move the servo to 45 degrees",
+        "transcript": "Move the servo to 45 degrees.",
+        "response": "{\"tool\": \"move_servo\", \"node\": \"node1\", \"arguments\": {\"angle\": 45}}",
+        "asr_time_s": 0.43503713607788086,
+        "llm_time_s": 0.8880641460418701,
+        "tts_time_s": 1.2474162578582764,
+        "total_time_s": 2.5705175399780273,
+        "correct": true
+      },
+      {
+        "prompt": "set the LED strip to blue",
+        "transcript": "Set the LED strip to blue.",
+        "response": "{\"tool\": \"set_rgb_strip\", \"node\": \"node2\", \"arguments\": {\"r\": 0, \"g\": 255, \"b\": 0}}",
+        "asr_time_s": 0.4315659999847412,
+        "llm_time_s": 1.3535430431365967,
+        "tts_time_s": 1.440040111541748,
+        "total_time_s": 3.225149154663086,
+        "correct": true
+      },
+      {
+        "prompt": "move both servos to 90 degrees",
+        "transcript": "Move both servos to 90 degrees.",
+        "response": "{\"tool\": \"move_servo\", \"node\": \"node1\", \"arguments\": {\"angle\": 90}} \n{\"tool\": \"move_servo\", \"node\": \"node2\", \"arguments\": {\"angle\": 90}}",
+        "asr_time_s": 0.43097496032714844,
+        "llm_time_s": 1.6830418109893799,
+        "tts_time_s": 1.2228620052337646,
+        "total_time_s": 3.336878776550293,
+        "correct": false
+      },
+      {
+        "prompt": "what are you?",
+        "transcript": "What are you?",
+        "response": "I'm Herald, a voice assistant running locally on a Raspberry Pi 5. I can control two ESP32 hardware nodes via voice commands.",
+        "asr_time_s": 0.4073221683502197,
+        "llm_time_s": 1.0083420276641846,
+        "tts_time_s": 2.244870185852051,
+        "total_time_s": 3.660534381866455,
+        "correct": true
+      }
+    ]
+  }
+}

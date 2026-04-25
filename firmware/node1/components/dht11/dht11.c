@@ -51,7 +51,6 @@ static esp_err_t dht11_send_start_signal(gpio_num_t pin) {
     // pull line low
     ret = gpio_set_level(pin, 0);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set level on gpio %d", (int)pin);
         return ret;
     }
 
@@ -61,7 +60,6 @@ static esp_err_t dht11_send_start_signal(gpio_num_t pin) {
     // release line (go HIGH briefly)
     ret = gpio_set_level(pin, 1);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to set level on gpio %d", (int)pin);
         return ret;
     }
 
@@ -85,7 +83,6 @@ static esp_err_t dht11_wait_for_level(gpio_num_t pin, int level, uint32_t timeou
     // wait until pin matches target level or timeout occurs
     while (gpio_get_level(pin) != level) {
         if ((esp_timer_get_time() - start_time) > timeout_us) {
-            ESP_LOGE(TAG, "timeout waiting for level %d on gpio %d", level, (int)pin);
             return ESP_ERR_TIMEOUT;
         }
     }
@@ -105,14 +102,12 @@ static esp_err_t dht11_wait_for_response(gpio_num_t pin) {
     // wait for sensor LOW response
     ret = dht11_wait_for_level(pin, 0, DHT11_TIMEOUT_US);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "timeout waiting for sensor low response");
         return ret;
     }
 
     // wait for sensor HIGH response
     ret = dht11_wait_for_level(pin, 1, DHT11_TIMEOUT_US);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "timeout waiting for sensor high response");
         return ret;
     }
 
@@ -131,7 +126,6 @@ static esp_err_t dht11_read_bit(gpio_num_t pin, uint8_t *bit) {
 
     // sanity check
     if (bit == NULL) {
-        ESP_LOGE(TAG, "null bit pointer");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -170,7 +164,6 @@ static esp_err_t dht11_read_byte(gpio_num_t pin, uint8_t *byte) {
 
     // sanity check
     if (byte == NULL) {
-        ESP_LOGE(TAG, "null byte pointer");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -202,7 +195,6 @@ static esp_err_t dht11_read_data(gpio_num_t pin, uint8_t data[5]) {
     esp_err_t ret;
 
     if (data == NULL) {
-        ESP_LOGE(TAG, "null data pointer");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -210,7 +202,6 @@ static esp_err_t dht11_read_data(gpio_num_t pin, uint8_t data[5]) {
     for (int i = 0; i < 5; i++) {
         ret = dht11_read_byte(pin, &data[i]);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "failed reading byte %d", i);
             return ret;
         }
     }
@@ -291,45 +282,45 @@ esp_err_t dht11_update(dht11_t *dht11) {
     // start sensor
     ret = dht11_send_start_signal(dht11->pin);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to send start signal");
         portENABLE_INTERRUPTS();
+        ESP_LOGE(TAG, "failed to send start signal");
         return ret;
     }
 
     // total timeout check
     if ((esp_timer_get_time() - start_time) > DHT11_TOTAL_TIMEOUT_US) {
-        ESP_LOGE(TAG, "total timeout after start signal");
         portENABLE_INTERRUPTS();
+        ESP_LOGE(TAG, "total timeout after start signal");
         return ESP_ERR_TIMEOUT;
     }
 
     // wait for ACK
     ret = dht11_wait_for_response(dht11->pin);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to receive sensor response");
         portENABLE_INTERRUPTS();
+        ESP_LOGE(TAG, "failed to receive sensor response");
         return ret;
     }
 
     // total timeout check
     if ((esp_timer_get_time() - start_time) > DHT11_TOTAL_TIMEOUT_US) {
-        ESP_LOGE(TAG, "total timeout after ack");
         portENABLE_INTERRUPTS();
+        ESP_LOGE(TAG, "total timeout after ack");
         return ESP_ERR_TIMEOUT;
     }
 
     // read data
     ret = dht11_read_data(dht11->pin, data);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "failed to read sensor data");
         portENABLE_INTERRUPTS();
+        ESP_LOGE(TAG, "failed to read sensor data");
         return ret;
     }
 
     // total timeout check
     if ((esp_timer_get_time() - start_time) > DHT11_TOTAL_TIMEOUT_US) {
-        ESP_LOGE(TAG, "total timeout after data read");
         portENABLE_INTERRUPTS();
+        ESP_LOGE(TAG, "total timeout after data read");
         return ESP_ERR_TIMEOUT;
     }
 

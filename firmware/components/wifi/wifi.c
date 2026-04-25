@@ -25,6 +25,8 @@ static const char *TAG = "wifi";
 static int s_retry_count = 0;
 static EventGroupHandle_t s_wifi_event_group = NULL;
 
+extern void wifi_on_state_change(bool connected);
+
 // ── Private API ───────────────────────────────────────────────────────────────
 
 /**
@@ -40,6 +42,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         esp_wifi_connect();
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_on_state_change(false);
         if (s_retry_count < WIFI_MAX_RETRY) {
             esp_wifi_connect();
             s_retry_count++;
@@ -56,6 +59,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         }
 
         s_retry_count = 0;
+        wifi_on_state_change(true);
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }

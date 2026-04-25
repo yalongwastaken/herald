@@ -1,0 +1,103 @@
+
+============================================================
+ASR BENCHMARK — faster-whisper
+============================================================
+  model: base.en  |  runs per sample: 10
+  Whisper load time: 0.55s
+  Kokoro load time (for audio gen): 0.57s
+
+  generating test audio via Kokoro TTS...
+
+  #       dur    time     RTF    WER  transcript
+  ---------------------------------------------------------------------------
+  [1]   0.8s    0.37s   0.470   0.00  'Hello.'
+  [2]   2.7s    0.45s   0.167   0.00  'The quick brown fox jumps over the lazy dog.'
+  [3]   4.9s    0.51s   0.105   0.00  'Debouncing is a technique used to filter out rapid repeated signals from a button.'
+  [4]   6.0s    0.50s   0.084   0.00  'Embedded systems require careful management of hardware resources and real-time constraints.'
+  [5]   8.2s    0.59s   0.072   0.00  'An interrupt service routine is a callback function executed by the processor in response to a hardware or software interrupt signal.'
+
+  --- summary ---
+  latency (s)          mean=0.485  std=0.073  min=0.371  max=0.589
+  RTF                  mean=0.179  std=0.149  min=0.072  max=0.470
+  WER                  mean=0.000  std=0.000  min=0.000  max=0.000
+  throughput: 9.31x real-time
+
+============================================================
+LLM BENCHMARK — llama-cpp-python (Llama 3.2 3B Q4_K_M)
+============================================================
+  model: Llama-3.2-3B-Instruct-Q4_K_M.gguf  |  runs per prompt: 10
+  model load time: 2.08s
+
+  #    type        time    g_tps   tok ok      response
+  --------------------------------------------------------------------------------
+  [1] short      1.23s     18.7    23 PASS        '{"tool": "set_relay", "node": "node1", "arguments": {"state": true}}'
+  [2] short      0.80s     30.2    24 PASS        '{"tool": "move_servo", "node": "node1", "arguments": {"angle": 90}}'
+  [3] medium     1.17s     30.7    36 PASS        '{"tool": "set_rgb_strip", "node": "node2", "arguments": {"r": 255, "g": 0, "b": 0}}'
+  [4] medium     1.55s     31.0    48 PASS        '{"tool": "move_servo", "node": "node1", "arguments": {"angle": 45}, "tool": "move_servo", "node": "node2", "arguments": {"angle": 45}}'
+  [5] long       1.24s     32.2    40 FAIL(1/10)  '{"tool": "get_temp_humidity", "node": "node1", "arguments": {}}, {"tool": "get_distance", "node": "node2", "arguments": {}}'
+       reason: invalid JSON
+  [6] conv       0.94s     29.7    28 PASS        'I'm Herald, a voice assistant running locally on a Raspberry Pi 5. I can control two ESP32 hardware nodes via voice commands.'
+  [7] conv       0.94s     29.9    28 PASS        'I'm Herald, a voice assistant running locally on a Raspberry Pi 5. I can control two ESP32 hardware nodes via voice commands.'
+
+  --- summary ---
+  latency (s)          mean=1.123  std=0.234  min=0.796  max=1.547
+  gen tokens/req       mean=32.429  std=8.550  min=23.000  max=48.000
+  approx gen tps       mean=28.924  std=4.234  min=18.733  max=32.231
+  tool-call accuracy: 86% (6/7)
+
+============================================================
+TTS BENCHMARK — kokoro-onnx
+============================================================
+  model load time: 0.58s
+  voices tested: ['af_heart', 'af_bella']  |  runs per text: 10
+
+  voice: af_heart
+  #    label           dur    time     RTF
+  ---------------------------------------------
+  [1] very_short    0.79s    0.31s   0.389
+  [2] short         1.49s    0.47s   0.318
+  [3] medium        1.75s    0.55s   0.314
+  [4] long          5.50s    1.39s   0.252
+  [5] very_long     5.03s    1.27s   0.252
+  avg RTF: 0.305  avg latency: 0.797s
+
+  voice: af_bella
+  #    label           dur    time     RTF
+  ---------------------------------------------
+  [1] very_short    0.68s    0.32s   0.468
+  [2] short         1.45s    0.51s   0.353
+  [3] medium        1.81s    0.59s   0.325
+  [4] long          5.70s    1.47s   0.257
+  [5] very_long     5.08s    1.35s   0.265
+  avg RTF: 0.334  avg latency: 0.847s
+
+
+============================================================
+PIPELINE BENCHMARK — ASR → LLM → TTS (end-to-end)
+============================================================
+  loading models...
+  all models loaded in 3.20s
+
+  #    type                     asr     llm     tts   total ok      tool/response
+  --------------------------------------------------------------------------------
+  [1] single tool call       0.44s   6.50s   1.29s   8.22s PASS    '{"tool": "set_relay", "node": "node1", "arguments": {"state": true}}'
+  [2] single tool call       0.44s   0.89s   1.25s   2.57s PASS    '{"tool": "move_servo", "node": "node1", "arguments": {"angle": 45}}'
+  [3] single tool call       0.43s   1.35s   1.44s   3.23s PASS    '{"tool": "set_rgb_strip", "node": "node2", "arguments": {"r": 0, "g": 255, "b": 0}}'
+  [4] fan-out                0.43s   1.68s   1.22s   3.34s FAIL    '{"tool": "move_servo", "node": "node1", "arguments": {"angle": 90}} 
+{"tool": "move_servo", "node": "node2", "arguments": {"angle": 90}}'
+       transcript: 'Move both servos to 90 degrees.'  reason: invalid JSON
+  [5] conversation           0.41s   1.01s   2.24s   3.66s PASS    'I'm Herald, a voice assistant running locally on a Raspberry Pi 5. I can control two ESP32 hardware nodes via voice commands.'
+
+  --- summary ---
+  total latency (s)    mean=4.203  std=2.040  min=2.571  max=8.220
+  pass rate: 4/5
+  mean stage breakdown:
+    ASR: 0.429s
+    LLM: 2.286s
+    TTS: 1.488s
+
+============================================================
+benchmark complete.
+results saved to /Users/anthony/Desktop/projects/herald/server/test/benchmark_results.json
+log saved to     /Users/anthony/Desktop/projects/herald/server/test/benchmark_log.txt
+============================================================

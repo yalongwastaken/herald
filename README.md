@@ -47,7 +47,7 @@ routing logic.
         │                    → [USB Speaker]        │
         │                                           │
         │  Mosquitto (MQTT Broker)                  │
-        │  WiFi Hotspot                             │
+        │  WiFi Hotspot (192.168.4.1)               │
         └──────────────┬────────────────────────────┘
                        │  WiFi / MQTT
            ┌───────────┴───────────┐
@@ -72,22 +72,19 @@ WiFi hotspot, making the system fully self-contained.
 
 | Device | Role | Key Peripherals |
 |---|---|---|
-| Raspberry Pi 5 (4GB) | Central node | SunFounder USB Mic, HONKYOB USB Speaker, push-to-talk button (GPIO) |
+| Raspberry Pi 5 (4GB) | Central node | SunFounder USB Mic, HONKYOB USB Speaker, push-to-talk button (GPIO 17) |
 | ESP32 Node 1 (ELEGOO) | Actuator node | SSD1306 OLED (I2C), SG90 Servo (PWM), Relay (GPIO), Active Buzzer (GPIO), DHT11 |
 | ESP32 Node 2 (SunFounder) | Actuator node | LCD 1602 (I2C), SG90 Servo (PWM), WS2812B Strip (one-wire), Active Buzzer (GPIO), HC-SR04 |
-
-> Hardware configuration may shift depending on availability. The architecture is node-agnostic at
-> the dispatch layer — adding or removing nodes requires no changes to the LLM or dispatcher.
 
 ## Software Stack
 
 | Layer | Technology | Notes |
 |---|---|---|
 | ASR | OpenAI Whisper (`base.en`) | Local; model size flexible based on latency constraints |
-| LLM | TBD via llama.cpp | Quantized GGUF, instruction-tuned; must fit ~3GB alongside Whisper + Kokoro |
-| TTS | Kokoro | Local synthesis, USB speaker playback |
+| LLM | Llama 3.2 3B Instruct Q4_K_M | Quantized GGUF via llama-cpp-python; fits in ~3GB alongside Whisper + Kokoro |
+| TTS | Kokoro (kokoro-onnx) | Local synthesis, USB speaker playback |
 | Tool Dispatch | Python (MCP-inspired) | LLM output parsed into JSON tool calls, dispatched via MQTT |
-| MQTT Broker | Mosquitto | Runs on RPi 5 |
+| MQTT Broker | Mosquitto | Runs on RPi 5; binds to 192.168.4.1:1883 |
 | Networking | RPi 5 as WiFi hotspot | ESP32s connect directly; no external network dependency |
 | Firmware | ESP-IDF (C) | Both ESP32 nodes |
 | Boot | systemd service | herald auto-starts on RPi 5 power-on; headless operation |
@@ -100,13 +97,13 @@ appropriate MQTT topic.
 
 | Tool | Node | Parameters | Hardware |
 |---|---|---|---|
-| `set_display` | Any | `text: str` | OLED (Node 1) / LCD (Node 2) |
+| `set_display` | Any | `message: str` | OLED (Node 1) / LCD (Node 2) |
 | `move_servo` | Any | `angle: int` (0–180) | SG90 |
 | `buzz` | Any | `duration_ms: int` | Active Buzzer |
-| `stop` | Any | _(none)_ | Bypasses queue, halts current task immediately |
+| `stop` | Any | _(none)_ | Halts all actuators immediately |
 | `set_relay` | Node 1 only | `state: bool` | SRD-05VDC Relay |
 | `get_temp_humidity` | Node 1 only | _(none)_ | DHT11 |
-| `set_rgb_strip` | Node 2 only | `pattern: str`, `color: str` | WS2812B |
+| `set_rgb_strip` | Node 2 only | `r: int, g: int, b: int` | WS2812B |
 | `get_distance` | Node 2 only | _(none)_ | HC-SR04 |
 
 ### Dispatch payload format
@@ -121,8 +118,6 @@ appropriate MQTT topic.
 herald/
 ├── cmd/node1                    RPi → Node 1    JSON tool call
 ├── cmd/node2                    RPi → Node 2    JSON tool call
-├── ack/node1                    Node 1 → RPi    Execution ack
-├── ack/node2                    Node 2 → RPi    Execution ack
 ├── poll/node1/temp_humidity     RPi → Node 1    Sensor poll request
 ├── poll/node2/distance          RPi → Node 2    Sensor poll request
 ├── data/node1/temp_humidity     Node 1 → RPi    Sensor reading
@@ -136,19 +131,28 @@ herald/
 ├── docs/
 │   └── herald_architecture.pdf   Full system design and data flow
 ├── firmware/
-│   ├── node1/                    ELEGOO ESP32 firmware (ESP-IDF)
-│   └── node2/                    SunFounder ESP32 firmware (ESP-IDF)
+│   ├── README.md                 Firmware setup and flashing instructions
+│   ├── components/               Shared ESP-IDF components
+│   ├── node1/                    ELEGOO ESP32 firmware
+│   └── node2/                    SunFounder ESP32 firmware
 ├── server/
+│   ├── README.md                 Server setup instructions (run on RPi 5)
+│   ├── models/                   Model files (downloaded via download_models.py)
+│   ├── test/                     ASR / LLM / TTS / pipeline benchmarks
 │   ├── main.py                   Pipeline entrypoint
 │   ├── asr.py                    Whisper capture + transcription
 │   ├── llm.py                    LLM inference + tool call parsing
 │   ├── tts.py                    Kokoro synthesis + playback
 │   ├── dispatcher.py             Tool call → MQTT publish
-│   └── tools.py                  Tool schemas + handler registry
-├── tests/
-│   └── server/
+│   ├── tools.py                  Tool schemas + handler registry
+│   └── download_models.py        Model download script
+├── requirements.txt              Python dependencies
 └── README.md
 ```
+
+For setup instructions see:
+- [`server/README.md`](server/README.md) — RPi 5 server setup (Python env, models, MQTT, hotspot, systemd)
+- [`firmware/README.md`](firmware/README.md) — ESP32 firmware build and flash (run locally on your machine)
 
 ## Demo Scenarios
 
@@ -159,8 +163,9 @@ herald/
 | "Move the servo on both nodes to 90 degrees" | Fan-out: both nodes actuate simultaneously |
 | "What's the temperature?" | Node 1 DHT11 polled; reading announced via TTS |
 | "How far is the nearest object?" | Node 2 HC-SR04 polled; distance announced via TTS |
-| "Stop" | High-priority stop dispatched; current task halts immediately |
+| "Stop" | Stop dispatched to all nodes; all actuators halt |
 
 ## Team
 
 Anthony Yalong & Vaidehi Gohil
+Northeastern University — EECE7398 Applied ML Systems, Spring 2026

@@ -248,23 +248,21 @@ esp_err_t lcd_backlight(bool state, lcd_handle_t *lcd) {
 }
 
 esp_err_t lcd_print(const char *str, lcd_handle_t *lcd) {
-    esp_err_t ret;
-
-    // sanity check
     if (lcd == NULL || str == NULL) {
         ESP_LOGE(TAG, "null structure pointer");
         return ESP_ERR_INVALID_ARG;
     }
 
-    while (*str) {
-        ret = lcd_send_data(lcd, (uint8_t)*str);
+    uint8_t count = 0;
+    while (*str && count < lcd->cols) {
+        esp_err_t ret = lcd_send_data(lcd, (uint8_t)*str);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "failed to write character");
             return ret;
         }
         str++;
+        count++;
     }
 
-    ESP_LOGD(TAG, "printed string");
     return ESP_OK;
 }

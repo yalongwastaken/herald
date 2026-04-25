@@ -21,7 +21,7 @@
 #define PIN_BUZZER              GPIO_NUM_18
 #define PIN_SERVO               GPIO_NUM_19
 #define PIN_RELAY               GPIO_NUM_14
-#define PIN_DHT11               GPIO_NUM_4
+#define PIN_DHT11               GPIO_NUM_5
 #define PIN_OLED_SDA            GPIO_NUM_21
 #define PIN_OLED_SCL            GPIO_NUM_22
 

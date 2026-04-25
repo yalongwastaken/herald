@@ -1,0 +1,8 @@
+faster-whisper
+llama-cpp-python
+kokoro-onnx
+sounddevice
+scipy
+numpy
+paho-mqtt
+gpiozero

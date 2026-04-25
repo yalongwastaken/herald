@@ -22,6 +22,7 @@ static esp_mqtt_client_handle_t s_client = NULL;
 static EventGroupHandle_t s_mqtt_event_group = NULL;
 
 extern void mqtt_on_data(const char *payload, int len);
+extern void mqtt_on_state_change(bool connected);
 
 // ── Private API ───────────────────────────────────────────────────────────────
 
@@ -43,10 +44,12 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         case MQTT_EVENT_CONNECTED:
             esp_mqtt_client_subscribe(s_client, MQTT_TOPIC_CMD, 0);
             esp_mqtt_client_subscribe(s_client, MQTT_TOPIC_POLL, 1);
+            mqtt_on_state_change(true);
             xEventGroupSetBits(s_mqtt_event_group, MQTT_CONNECTED_BIT);
             break;
 
         case MQTT_EVENT_DISCONNECTED:
+            mqtt_on_state_change(false);
             xEventGroupSetBits(s_mqtt_event_group, MQTT_FAIL_BIT);
             break;
 
