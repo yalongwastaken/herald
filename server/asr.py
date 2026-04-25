@@ -1,9 +1,12 @@
+# @file    asr.py
+# @author  Vaidehi Gohil
+# @brief   Push-to-talk ASR using faster-whisper and INMP441 USB mic on RPi 5.
+
 import numpy as np
 import sounddevice as sd
-import time
+from scipy.signal import resample_poly
 from gpiozero import Button
 from faster_whisper import WhisperModel
-
 
 BUTTON_PIN = 17
 
@@ -14,18 +17,23 @@ class ASR:
         model_size: str = "base.en",
         device: str = "cpu",
         compute_type: str = "int8",
-        input_device: int = 0,
+        input_device: int = None,
         sample_rate: int = 48000,
         whisper_rate: int = 16000,
-        channels: int = 2,
+        channels: int = 1,
+        button_pin: int = BUTTON_PIN,
     ):
         self.input_device = input_device
         self.sample_rate = sample_rate
         self.whisper_rate = whisper_rate
         self.channels = channels
 
-        # GPIO setup for push-to-talk button (gpiozero works on Pi 5)
-        self.button = Button(BUTTON_PIN, pull_up=True)
+        if input_device is None:
+            print("[ASR] Available audio devices:")
+            print(sd.query_devices())
+            print("[ASR] Warning: no input_device specified, using system default.")
+
+        self.button = Button(button_pin, pull_up=True)
 
         print("[ASR] Loading Whisper model...")
         self.model = WhisperModel(model_size, device=device, compute_type=compute_type)
@@ -38,11 +46,10 @@ class ASR:
         print("[ASR] Button pressed — recording started.")
 
     def record_until_release(self) -> np.ndarray:
-        """Record audio from the INMP441 mic until the button is released.
-        Returns raw audio as a numpy array (48000Hz, stereo, int32)."""
+        """Record audio from the mic until the button is released.
+        Returns raw audio as a numpy array (sample_rate Hz, int32)."""
         chunks = []
-
-        chunk_duration = 0.1  # seconds per chunk
+        chunk_duration = 0.1
         chunk_size = int(self.sample_rate * chunk_duration)
 
         with sd.InputStream(
@@ -59,30 +66,33 @@ class ASR:
 
         if not chunks:
             return np.array([], dtype=np.int32)
-
         return np.concatenate(chunks, axis=0)
 
     def _preprocess(self, audio: np.ndarray) -> np.ndarray:
-        """Convert raw INMP441 audio to Whisper-compatible format.
+        """Convert raw mic audio to Whisper-compatible format.
         Steps:
           1. int32 -> float32 normalisation
-          2. Stereo -> mono (average channels)
-          3. Downsample 48000Hz -> 16000Hz
+          2. Mono or stereo -> mono
+          3. Resample to 16000Hz using polyphase filter (no aliasing)
         """
         if audio.size == 0:
             return np.array([], dtype=np.float32)
 
-        # Normalise int32 to [-1.0, 1.0]
+        # normalise int32 to [-1.0, 1.0]
         audio_float = audio.astype(np.float32) / np.iinfo(np.int32).max
 
-        # Stereo -> mono
-        mono = audio_float.mean(axis=1)
+        # stereo -> mono if needed
+        if audio_float.ndim == 2:
+            audio_float = audio_float.mean(axis=1)
 
-        # Downsample: keep every Nth sample (simple decimation)
-        ratio = self.sample_rate // self.whisper_rate  # 48000 / 16000 = 3
-        downsampled = mono[::ratio]
+        # resample using polyphase filter — avoids aliasing from naive decimation
+        from math import gcd
+        g = gcd(self.whisper_rate, self.sample_rate)
+        up = self.whisper_rate // g
+        down = self.sample_rate // g
+        resampled = resample_poly(audio_float, up, down).astype(np.float32)
 
-        return downsampled
+        return resampled
 
     def transcribe(self, audio: np.ndarray) -> str:
         """Preprocess and transcribe audio. Returns transcript string."""
@@ -111,7 +121,6 @@ class ASR:
 
 
 if __name__ == "__main__":
-    # Quick test — press and hold button to record, release to transcribe
     asr = ASR()
     try:
         while True:
