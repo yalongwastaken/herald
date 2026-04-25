@@ -7,6 +7,8 @@ firmware/node1/dependencies.lock
 firmware/node2/dependencies.lock
 firmware/node1/managed_components/
 firmware/node2/managed_components/
+firmware/node1/test/managed_components/
+firmware/node2/test/managed_components/
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/

@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+set(EXTRA_COMPONENT_DIRS "../components ../../components")
+add_compile_definitions(NODE2)
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(node2_test)
