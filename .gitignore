@@ -44,3 +44,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# ── Docs ──────────────────────────────────────────────────────────────────────
+docs/*
+!docs/herald_architecture_diagram.png
